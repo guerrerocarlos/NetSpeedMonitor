@@ -23,3 +23,19 @@ Any PR for feature enhancement or compatibility improvement is welcomed!
 # Screenshot
 
 ![](./screenshot.png)
+
+## Building
+
+1. Install the full Xcode (15 or newer) and set it active: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+2. Open `NetSpeedMonitor.xcodeproj` in Xcode, select the `NetSpeedMonitor` scheme, configure code signing, then build with **Product ▸ Build** (⌘B).
+3. To build from the command line instead, run:
+
+   ```bash
+   xcodebuild -project NetSpeedMonitor.xcodeproj \
+              -scheme NetSpeedMonitor \
+              -configuration Release \
+              -derivedDataPath Build \
+              clean build
+   ```
+
+The resulting `.app` bundle will be in `Build/Build/Products/Release/NetSpeedMonitor.app`. Minimum supported macOS version is 14.6.
