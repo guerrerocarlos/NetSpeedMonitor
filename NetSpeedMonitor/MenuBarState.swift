@@ -89,28 +89,27 @@ class MenuBarState: ObservableObject {
         let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(self.netSpeedUpdateInterval.rawValue), repeats: true) { _ in
 
                 self.primaryInterface = self.findPrimaryInterface()
-                if (self.primaryInterface == nil) { return }
+                guard let primaryInterface = self.primaryInterface else { return }
                 
-                if let netTrafficStatMap = self.netTrafficStat.getNetTrafficStatMap() {
-                    if let netTrafficStat = netTrafficStatMap.object(forKey: self.primaryInterface!) as? NetTrafficStatOC  {
-                        self.downloadSpeed = netTrafficStat.ibytes_per_sec as! Double
-                        self.uploadSpeed = netTrafficStat.obytes_per_sec as! Double
-                        self.downloadMetric = self.speedMetrics.first!
-                        self.uploadMetric = self.speedMetrics.first!
-                        for metric in self.speedMetrics.dropFirst() {
-                            if self.downloadSpeed > 1000.0 {
-                                self.downloadSpeed /= 1024.0
-                                self.downloadMetric = metric
-                            }
-                            if self.uploadSpeed > 1000.0 {
-                                self.uploadSpeed /= 1024.0
-                                self.uploadMetric = metric
-                            }
+                let netTrafficStatMap = self.netTrafficStat.getNetTrafficStatMap()
+                if let netTrafficStat = netTrafficStatMap[primaryInterface] {
+                    self.downloadSpeed = netTrafficStat.inboundBytesPerSecond
+                    self.uploadSpeed = netTrafficStat.outboundBytesPerSecond
+                    self.downloadMetric = self.speedMetrics.first!
+                    self.uploadMetric = self.speedMetrics.first!
+                    for metric in self.speedMetrics.dropFirst() {
+                        if self.downloadSpeed > 1000.0 {
+                            self.downloadSpeed /= 1024.0
+                            self.downloadMetric = metric
                         }
-                        self.menuText = "↑ \(String(format: "%6.2lf", self.uploadSpeed)) \(self.uploadMetric)/s\n↓ \(String(format: "%6.2lf", self.downloadSpeed)) \(self.downloadMetric)/s"
-                        
-                        logger.info("deltaIn: \(String(format:"%.6f", self.downloadSpeed)) \(self.downloadMetric)/s, deltaOut: \(String(format:"%.6f", self.uploadSpeed)) \(self.uploadMetric)/s")
+                        if self.uploadSpeed > 1000.0 {
+                            self.uploadSpeed /= 1024.0
+                            self.uploadMetric = metric
+                        }
                     }
+                    self.menuText = "↑ \(String(format: "%6.2lf", self.uploadSpeed)) \(self.uploadMetric)/s\n↓ \(String(format: "%6.2lf", self.downloadSpeed)) \(self.downloadMetric)/s"
+                    
+                    logger.info("deltaIn: \(String(format: "%.6f", self.downloadSpeed)) \(self.downloadMetric)/s, deltaOut: \(String(format: "%.6f", self.uploadSpeed)) \(self.uploadMetric)/s")
                 }
             }
         RunLoop.current.add(timer, forMode: .common)
@@ -137,4 +136,3 @@ class MenuBarState: ObservableObject {
         }
     }
 }
-
