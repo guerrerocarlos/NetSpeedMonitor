@@ -3,31 +3,35 @@
 ## Goal
 Fully remove the Objective-C++ networking bridge and run the NetSpeedMonitor menu bar app entirely on Swift, while keeping existing behaviour (per-interface byte deltas and live menu updates).
 
-## Current State
-- ✅ Swift-native `NetTrafficStatReceiver` implemented (`NetSpeedMonitor/NetTrafficStatReceiver.swift`) with sysctl polling, rollover handling, and structured logging.
-- ✅ `MenuBarState` now consumes Swift structs instead of `NetTrafficStatOC`.
-- ✅ Bridging header and Objective-C++/C++ source files deleted; Xcode target no longer requires Objective-C interop.
+## Completed Checklist
+- [x] Replace Objective-C++ bridge with Swift-native `NetTrafficStatReceiver`.
+- [x] Update `MenuBarState` to consume Swift stats data structures.
+- [x] Remove legacy Objective-C++ files and the bridging header.
+- [x] Strip Objective-C++ build settings from the Xcode target.
 
-## Remaining Work
-1. **Functional validation**
-   - Open the project in Xcode 15+.
-   - Build & run on macOS ≥ 14.6.
-   - Confirm the menu text updates for upload/download speeds and matches previous behaviour.
-   - Exercise update intervals, auto-launch toggle, and Activity Monitor button to guard against regressions.
-2. **Testing & instrumentation**
-   - Consider adding unit coverage around `NetTrafficStatReceiver` for rollover and long-interval behaviour (e.g. injecting mock snapshots).
-   - Optional: add lightweight integration test to ensure `MenuBarState` formats strings correctly for various ranges.
-3. **Performance watch**
-   - Profile CPU usage while polling at 1s interval; ensure the Swift implementation matches or improves on the previous Objective-C++ bridge.
-4. **Documentation**
-   - Update README or developer docs with notes on the Swift stats layer if deeper explanation is helpful for future contributors.
-
-## Risks & Mitigations
-- **Counter handling edge cases**: rollover logic now uses `UInt64.max`; add tests to capture 32-bit rollover inputs.
-- **Interface availability**: `if_indextoname` lookups might fail for virtual/temporary interfaces; ensure graceful fallback continues.
-- **Error reporting**: sysctl failures log warnings; consider bubbling surfaced errors into UI if persistent.
-
-## Follow-up Ideas
-- Evaluate using Combine or async timers for cleaner scheduling.
-- Cache per-interface human-readable names if app later surfaces them.
-- Investigate lowering minimum macOS target once verified with real hardware.
+## Todo Checklist
+- [ ] Functional validation – ensure runtime parity with the former Objective-C++ bridge.
+  - Open the project in Xcode 15 or newer.
+  - Build and run on macOS 14.6+ hardware or VM.
+  - Verify the menu text updates for upload/download speeds across all interval options (1s–30s).
+  - Toggle the “Start at Login” setting, confirm registration/unregistration succeeds.
+  - Trigger the “Open Activity Monitor” button and the “Quit” action to confirm menu interactions still work.
+- [ ] Testing – guard critical paths around byte tracking and UI formatting.
+  - Introduce unit tests for `NetTrafficStatReceiver` covering normal deltas, rollover behaviour, and >60s gaps that should zero-out speeds.
+  - Add lightweight tests (or preview asserts) ensuring `MenuBarState` renders metrics with the correct unit scaling (B, KB, MB, GB, TB).
+  - Consider injecting a clock/probe to make deterministic assertions on delta time calculations.
+- [ ] Performance review – maintain or improve CPU footprint under frequent polling.
+  - Profile the app while running with the 1-second interval to compare CPU usage against historical baselines.
+  - Inspect allocations from the sysctl buffer reuse to confirm no unexpected churn.
+  - Capture findings for both Intel and Apple silicon if available.
+- [ ] Documentation – describe the new Swift stats layer for future contributors.
+  - Extend README or add a dedicated developer doc outlining how `NetTrafficStatReceiver` works and how to evolve it.
+  - Note the rationale for keeping raw sysctl usage versus adopting higher-level frameworks.
+- [ ] Risk review – explicitly record mitigations for known edge cases.
+  - Counter rollover: ensure the `UInt64` wrap logic is documented alongside suggested monitoring.
+  - Interface discovery: log and handle failures from `if_indextoname`, especially for transient or virtual interfaces.
+  - Sysctl errors: decide whether repeated failures should surface UI feedback beyond logging.
+- [ ] Follow-ups – track improvement ideas beyond the core migration.
+  - Evaluate migrating timer management to Combine or async/await for cleaner lifecycle handling.
+  - Investigate caching human-friendly interface names if future UI surfaces more detail.
+  - Test on older macOS releases to determine whether the deployment target can be lowered safely.
