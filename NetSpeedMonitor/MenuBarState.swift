@@ -23,6 +23,34 @@ enum NetSpeedUpdateInterval: Int, CaseIterable, Identifiable {
     }
 }
 
+enum SpeedUnit: String, CaseIterable, Identifiable {
+    case bits = "bits"
+    case bytes = "bytes"
+    
+    var id: String { self.rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .bits: return "Bits/s"
+        case .bytes: return "Bytes/s"
+        }
+    }
+    
+    var multiplier: Double {
+        switch self {
+        case .bits: return 8.0
+        case .bytes: return 1.0
+        }
+    }
+    
+    var shortUnit: String {
+        switch self {
+        case .bits: return "b"
+        case .bytes: return "B"
+        }
+    }
+}
+
 class MenuBarState: ObservableObject {
     @AppStorage("AutoLaunchEnabled") var autoLaunchEnabled: Bool = false {
         didSet { updateAutoLaunchStatus() }
@@ -30,7 +58,10 @@ class MenuBarState: ObservableObject {
     @AppStorage("NetSpeedUpdateInterval") var netSpeedUpdateInterval: NetSpeedUpdateInterval = .Sec1 {
         didSet { updateNetSpeedUpdateIntervalStatus() }
     }
-    @Published var menuText = "↑ \(String(format: "%6.2lf", 0)) \(" B")/s\n↓ \(String(format: "%6.2lf", 0)) \(" B")/s"
+    @AppStorage("SpeedUnit") var speedUnit: SpeedUnit = .bits {
+        didSet { updateSpeedUnitStatus() }
+    }
+    @Published var menuText = "↑ \(String(format: "%6.2lf", 0)) \(" b")/s\n↓ \(String(format: "%6.2lf", 0)) \(" b")/s"
     
     var currentIcon: NSImage {
         return MenuBarIconGenerator.generateIcon(text: menuText)
@@ -42,9 +73,13 @@ class MenuBarState: ObservableObject {
     
     private var uploadSpeed: Double = 0.0
     private var downloadSpeed: Double = 0.0
-    private var uploadMetric: String = " B"
-    private var downloadMetric: String = " B"
-    private let speedMetrics: [String] = [" B", "KB", "MB", "GB", "TB"]
+    private var uploadMetric: String = " b"
+    private var downloadMetric: String = " b"
+    
+    private var speedMetrics: [String] {
+        let baseUnit = speedUnit.shortUnit
+        return [" \(baseUnit)", "K\(baseUnit)", "M\(baseUnit)", "G\(baseUnit)", "T\(baseUnit)"]
+    }
     
     private func currentAutoLaunchStatus() -> Bool {
         let service = SMAppService.mainApp
@@ -78,6 +113,13 @@ class MenuBarState: ObservableObject {
         self.startTimer()
     }
     
+    private func updateSpeedUnitStatus() {
+        logger.info("speedUnit changed to \(self.speedUnit.displayName)")
+        // Reset metrics to default for new unit
+        self.uploadMetric = self.speedMetrics.first!
+        self.downloadMetric = self.speedMetrics.first!
+    }
+    
     private func findPrimaryInterface() -> String? {
         let storeRef = SCDynamicStoreCreate(nil, "FindCurrentInterfaceIpMac" as CFString, nil, nil)
         let global = SCDynamicStoreCopyValue(storeRef, "State:/Network/Global/IPv4" as CFString)
@@ -93,8 +135,9 @@ class MenuBarState: ObservableObject {
                 
                 let netTrafficStatMap = self.netTrafficStat.getNetTrafficStatMap()
                 if let netTrafficStat = netTrafficStatMap[primaryInterface] {
-                    self.downloadSpeed = netTrafficStat.inboundBytesPerSecond
-                    self.uploadSpeed = netTrafficStat.outboundBytesPerSecond
+                    // Apply unit multiplier (8x for bits, 1x for bytes)
+                    self.downloadSpeed = netTrafficStat.inboundBytesPerSecond * self.speedUnit.multiplier
+                    self.uploadSpeed = netTrafficStat.outboundBytesPerSecond * self.speedUnit.multiplier
                     self.downloadMetric = self.speedMetrics.first!
                     self.uploadMetric = self.speedMetrics.first!
                     for metric in self.speedMetrics.dropFirst() {

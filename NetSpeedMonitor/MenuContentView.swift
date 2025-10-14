@@ -41,7 +41,20 @@ struct MenuContentView: View {
             Divider()
             
             Section {
-                Button("Open Activity Monitor", action: onClickOpenActivityMonitor)
+                HStack {
+                    ForEach(SpeedUnit.allCases) { unit in
+                        Toggle(
+                            unit.displayName,
+                            isOn: Binding(
+                                get: { menuBarState.speedUnit == unit },
+                                set: { if $0 { menuBarState.speedUnit = unit } }
+                            )
+                        )
+                        .toggleStyle(.button)
+                    }
+                }
+            } header: {
+                Text("Speed Unit")
             }
             
             Divider()
@@ -53,25 +66,5 @@ struct MenuContentView: View {
             }
         }
         .fixedSize()
-    }
-    
-    private func onClickOpenActivityMonitor() {
-        let bundleID = "com.apple.ActivityMonitor"
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-            let config = NSWorkspace.OpenConfiguration()
-            config.activates = true
-            
-            NSWorkspace.shared.openApplication(at: appURL,
-                                               configuration: config,
-                                               completionHandler: { app, error in
-                if let error = error {
-                    logger.warning("Open Activity Monitor failed: \(error.localizedDescription)")
-                } else {
-                    logger.info("Open Activity Monitor succeeded.")
-                }
-            })
-        } else {
-            logger.warning("Cannot find Activity Monitor.")
-        }
     }
 }
