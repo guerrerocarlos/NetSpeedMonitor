@@ -26,16 +26,26 @@ Any PR for feature enhancement or compatibility improvement is welcomed!
 
 ## Building
 
+### Xcode
 1. Install the full Xcode (15 or newer) and set it active: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
 2. Open `NetSpeedMonitor.xcodeproj` in Xcode, select the `NetSpeedMonitor` scheme, configure code signing, then build with **Product ▸ Build** (⌘B).
-3. To build from the command line instead, run:
 
-   ```bash
-   xcodebuild -project NetSpeedMonitor.xcodeproj \
-              -scheme NetSpeedMonitor \
-              -configuration Release \
-              -derivedDataPath Build \
-              clean build
-   ```
+### Command line via Xcode build tools
+```bash
+xcodebuild -project NetSpeedMonitor.xcodeproj \
+           -scheme NetSpeedMonitor \
+           -configuration Release \
+           -derivedDataPath Build \
+           clean build
+```
 
-The resulting `.app` bundle will be in `Build/Build/Products/Release/NetSpeedMonitor.app`. Minimum supported macOS version is 14.6.
+The `.app` bundle appears at `Build/Build/Products/Release/NetSpeedMonitor.app`.
+
+### Pure Swift toolchain (SwiftPM)
+```bash
+swift run --configuration release NetSpeedMonitor
+```
+
+This uses `Package.swift` to compile and launch the menu bar app without Xcode. To distribute a standalone `.app`, wrap the release binary (`.build/release/NetSpeedMonitor`) in a macOS application bundle that copies `NetSpeedMonitor/Info.plist` and embeds required resources. Some features (such as launch-at-login registration) expect the app to live inside a bundle with a stable bundle identifier.
+
+Minimum supported macOS version remains 14.6.

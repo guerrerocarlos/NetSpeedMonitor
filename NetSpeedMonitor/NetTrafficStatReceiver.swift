@@ -72,7 +72,7 @@ final class NetTrafficStatReceiver {
         let now = Date()
         var latestStats: [String: NetTrafficStat] = [:]
 
-        sysctlBuffer.withUnsafeBytes { buffer in
+        sysctlBuffer.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
             guard var cursor = buffer.baseAddress else { return }
             let endPointer = cursor.advanced(by: dataLength)
 
@@ -85,8 +85,8 @@ final class NetTrafficStatReceiver {
                 }
 
                 guard Int32(messageHeader.ifm_type) == RTM_IFINFO else { continue }
-                guard (messageHeader.ifm_flags & UInt32(IFF_LOOPBACK)) == 0 else { continue }
-                guard (messageHeader.ifm_flags & UInt32(IFF_UP)) != 0 else { continue }
+                guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_LOOPBACK)) == 0 else { continue }
+                guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_UP)) != 0 else { continue }
 
                 var nameBuffer = [CChar](repeating: 0, count: Int(IF_NAMESIZE))
                 guard let namePointer = if_indextoname(UInt32(messageHeader.ifm_index), &nameBuffer) else { continue }

@@ -1,7 +1,8 @@
 import SwiftUI
 import os.log
 
-public var logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "elegracer")
+private let loggerSubsystem = Bundle.main.bundleIdentifier ?? "NetSpeedMonitor"
+public let logger = Logger(subsystem: loggerSubsystem, category: "elegracer")
 
 struct MenuContentView: View {
     @EnvironmentObject var menuBarState: MenuBarState
