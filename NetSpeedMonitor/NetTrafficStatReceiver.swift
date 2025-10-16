@@ -1,5 +1,5 @@
-import Foundation
 import Darwin
+import Foundation
 import os.log
 
 struct NetTrafficStat {
@@ -20,8 +20,9 @@ final class NetTrafficStatReceiver {
 
     private var snapshots: [String: InterfaceSnapshot] = [:]
     private var sysctlBuffer = Data()
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "NetSpeedMonitor",
-                                category: "NetTrafficStatReceiver")
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "NetSpeedMonitor",
+        category: "NetTrafficStatReceiver")
 
     func reset() {
         snapshots.removeAll()
@@ -33,11 +34,15 @@ final class NetTrafficStatReceiver {
             let stats = try fetchStats()
             logger.info("Found \(stats.count, privacy: .public) interfaces with stats")
             for (interface, stat) in stats {
-                logger.info("Interface \(interface, privacy: .public): inbound: \(stat.inboundBytesPerSecond, privacy: .public) B/s, outbound: \(stat.outboundBytesPerSecond, privacy: .public) B/s")
+                logger.info(
+                    "Interface \(interface, privacy: .public): inbound: \(stat.inboundBytesPerSecond, privacy: .public) B/s, outbound: \(stat.outboundBytesPerSecond, privacy: .public) B/s"
+                )
             }
             return stats
         } catch {
-            logger.warning("Failed to fetch network statistics: \(error.localizedDescription, privacy: .public)")
+            logger.warning(
+                "Failed to fetch network statistics: \(error.localizedDescription, privacy: .public)"
+            )
             return [:]
         }
     }
@@ -90,11 +95,14 @@ final class NetTrafficStatReceiver {
                 }
 
                 guard Int32(messageHeader.ifm_type) == RTM_IFINFO else { continue }
-                guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_LOOPBACK)) == 0 else { continue }
+                guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_LOOPBACK)) == 0 else {
+                    continue
+                }
                 guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_UP)) != 0 else { continue }
 
                 var nameBuffer = [CChar](repeating: 0, count: Int(IF_NAMESIZE))
-                guard let namePointer = if_indextoname(UInt32(messageHeader.ifm_index), &nameBuffer) else { continue }
+                guard let namePointer = if_indextoname(UInt32(messageHeader.ifm_index), &nameBuffer)
+                else { continue }
                 let interfaceName = String(cString: namePointer)
                 guard !interfaceName.isEmpty else { continue }
 
@@ -103,12 +111,15 @@ final class NetTrafficStatReceiver {
 
                 if let previous = snapshots[interfaceName] {
                     let deltaTime = now.timeIntervalSince(previous.timestamp)
-                    let inboundDelta = deltaBytes(current: inboundBytes, previous: previous.inboundBytes)
-                    let outboundDelta = deltaBytes(current: outboundBytes, previous: previous.outboundBytes)
+                    let inboundDelta = deltaBytes(
+                        current: inboundBytes, previous: previous.inboundBytes)
+                    let outboundDelta = deltaBytes(
+                        current: outboundBytes, previous: previous.outboundBytes)
 
-                    let speeds = computeSpeeds(deltaTime: deltaTime,
-                                               inboundDelta: inboundDelta,
-                                               outboundDelta: outboundDelta)
+                    let speeds = computeSpeeds(
+                        deltaTime: deltaTime,
+                        inboundDelta: inboundDelta,
+                        outboundDelta: outboundDelta)
 
                     latestStats[interfaceName] = NetTrafficStat(
                         timestamp: now,
@@ -119,13 +130,15 @@ final class NetTrafficStatReceiver {
                         outboundBytesPerSecond: speeds.outbound
                     )
 
-                    snapshots[interfaceName] = InterfaceSnapshot(timestamp: now,
-                                                                 inboundBytes: inboundBytes,
-                                                                 outboundBytes: outboundBytes)
+                    snapshots[interfaceName] = InterfaceSnapshot(
+                        timestamp: now,
+                        inboundBytes: inboundBytes,
+                        outboundBytes: outboundBytes)
                 } else {
-                    snapshots[interfaceName] = InterfaceSnapshot(timestamp: now,
-                                                                 inboundBytes: inboundBytes,
-                                                                 outboundBytes: outboundBytes)
+                    snapshots[interfaceName] = InterfaceSnapshot(
+                        timestamp: now,
+                        inboundBytes: inboundBytes,
+                        outboundBytes: outboundBytes)
                     latestStats[interfaceName] = NetTrafficStat(
                         timestamp: now,
                         deltaTime: 0,
@@ -150,9 +163,11 @@ final class NetTrafficStatReceiver {
         }
     }
 
-    private func computeSpeeds(deltaTime: TimeInterval,
-                               inboundDelta: UInt64,
-                               outboundDelta: UInt64) -> (inbound: Double, outbound: Double) {
+    private func computeSpeeds(
+        deltaTime: TimeInterval,
+        inboundDelta: UInt64,
+        outboundDelta: UInt64
+    ) -> (inbound: Double, outbound: Double) {
         guard deltaTime <= 60 else { return (0, 0) }
         let safeInterval = max(deltaTime, 1e-3)
         let inboundSpeed = Double(inboundDelta) / safeInterval
