@@ -30,7 +30,12 @@ final class NetTrafficStatReceiver {
 
     func getNetTrafficStatMap() -> [String: NetTrafficStat] {
         do {
-            return try fetchStats()
+            let stats = try fetchStats()
+            logger.info("Found \(stats.count, privacy: .public) interfaces with stats")
+            for (interface, stat) in stats {
+                logger.info("Interface \(interface, privacy: .public): inbound: \(stat.inboundBytesPerSecond, privacy: .public) B/s, outbound: \(stat.outboundBytesPerSecond, privacy: .public) B/s")
+            }
+            return stats
         } catch {
             logger.warning("Failed to fetch network statistics: \(error.localizedDescription, privacy: .public)")
             return [:]
