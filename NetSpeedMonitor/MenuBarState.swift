@@ -140,18 +140,22 @@ class MenuBarState: ObservableObject {
             self.primaryInterface = self.findPrimaryInterface()
             guard let primaryInterface = self.primaryInterface else {
                 self.logger.warning("No primary interface found")
+                print("DEBUG: No primary interface found")
                 return
             }
 
             self.logger.info("Using primary interface: \(primaryInterface)")
+            print("DEBUG: Using primary interface: \(primaryInterface)")
             let netTrafficStatMap = self.netTrafficStat.getNetTrafficStatMap()
             self.logger.info(
                 "Found \(netTrafficStatMap.count) interfaces: \(Array(netTrafficStatMap.keys))")
+            print("DEBUG: Found \(netTrafficStatMap.count) interfaces")
 
             if let netTrafficStat = netTrafficStatMap[primaryInterface] {
                 self.logger.info(
                     "Raw stats - deltaTime: \(netTrafficStat.deltaTime), inbound: \(netTrafficStat.inboundBytesPerSecond) B/s, outbound: \(netTrafficStat.outboundBytesPerSecond) B/s"
                 )
+                print("DEBUG: Raw stats - inbound: \(netTrafficStat.inboundBytesPerSecond) B/s, outbound: \(netTrafficStat.outboundBytesPerSecond) B/s")
 
                 // Apply unit multiplier (8x for bits, 1x for bytes)
                 self.downloadSpeed =
@@ -171,6 +175,9 @@ class MenuBarState: ObservableObject {
                 self.menuText =
                     "↑ \(String(format: "%6.2lf", self.uploadSpeed)) \(self.uploadMetric)/s\n↓ \(String(format: "%6.2lf", self.downloadSpeed)) \(self.downloadMetric)/s"
 
+                print("DEBUG: Final calculated speeds - Upload: \(self.uploadSpeed) MB/s, Download: \(self.downloadSpeed) MB/s")
+                print("DEBUG: Menu text: '\(self.menuText)'")
+                
                 self.logger.info("Final values: menuText='\(self.menuText, privacy: .public)'")
                 self.logger.info(
                     "deltaIn: \(String(format: "%.6f", self.downloadSpeed), privacy: .public) \(self.downloadMetric, privacy: .public)/s, deltaOut: \(String(format: "%.6f", self.uploadSpeed), privacy: .public) \(self.uploadMetric, privacy: .public)/s"
@@ -183,6 +190,7 @@ class MenuBarState: ObservableObject {
         RunLoop.current.add(timer, forMode: .common)
         self.timer = timer
         logger.info("startTimer")
+        print("DEBUG: Timer started with interval \(self.netSpeedUpdateInterval.rawValue)s")
     }
 
     private func stopTimer() {
@@ -192,7 +200,9 @@ class MenuBarState: ObservableObject {
     }
 
     init() {
+        print("DEBUG: MenuBarState init() called")
         DispatchQueue.main.async {
+            print("DEBUG: Starting async initialization")
             self.autoLaunchEnabled = self.currentAutoLaunchStatus()
             self.startTimer()
         }

@@ -30,8 +30,10 @@ final class NetTrafficStatReceiver {
     }
 
     func getNetTrafficStatMap() -> [String: NetTrafficStat] {
+        print("DEBUG: NetTrafficStatReceiver.getNetTrafficStatMap() called")
         do {
             let stats = try fetchStats()
+            print("DEBUG: fetchStats() returned \(stats.count) interfaces")
             logger.info("Found \(stats.count, privacy: .public) interfaces with stats")
             for (interface, stat) in stats {
                 logger.info(
@@ -40,6 +42,7 @@ final class NetTrafficStatReceiver {
             }
             return stats
         } catch {
+            print("DEBUG: fetchStats() threw error: \(error)")
             logger.warning(
                 "Failed to fetch network statistics: \(error.localizedDescription, privacy: .public)"
             )
@@ -48,6 +51,7 @@ final class NetTrafficStatReceiver {
     }
 
     private func fetchStats() throws -> [String: NetTrafficStat] {
+        print("DEBUG: fetchStats() starting")
         var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST, 0]
         var length = 0
 
@@ -57,8 +61,11 @@ final class NetTrafficStatReceiver {
         }
 
         guard status == 0 else {
+            print("DEBUG: sysctl query failed with status \(status), errno: \(errno)")
             throw SysctlError.unableToQuery(errno: errno)
         }
+
+        print("DEBUG: sysctl query successful, length: \(length)")
 
         if sysctlBuffer.count < length {
             sysctlBuffer = Data(count: length)
@@ -74,27 +81,43 @@ final class NetTrafficStatReceiver {
         }
 
         guard fetchStatus == 0 else {
+            print("DEBUG: sysctl fetch failed with status \(fetchStatus), errno: \(errno)")
             throw SysctlError.unableToFetch(errno: errno)
         }
 
-        guard dataLength > 0 else { return [:] }
+        print("DEBUG: sysctl fetch successful, dataLength: \(dataLength)")
+        guard dataLength > 0 else { 
+            print("DEBUG: dataLength is 0, returning empty dict")
+            return [:] 
+        }
 
         let now = Date()
         var latestStats: [String: NetTrafficStat] = [:]
+        var processedCount = 0
+        var skippedCount = 0
 
+        print("DEBUG: Starting to parse interface data")
         sysctlBuffer.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
-            guard var cursor = buffer.baseAddress else { return }
+            guard var cursor = buffer.baseAddress else { 
+                print("DEBUG: buffer.baseAddress is nil")
+                return 
+            }
             let endPointer = cursor.advanced(by: dataLength)
+            print("DEBUG: Will parse from cursor to endPointer, dataLength: \(dataLength)")
 
             while cursor < endPointer {
                 let messageHeader = cursor.assumingMemoryBound(to: if_msghdr.self).pointee
                 let messageLength = Int(messageHeader.ifm_msglen)
+                processedCount += 1
 
                 defer {
                     cursor = cursor.advanced(by: messageLength)
                 }
 
-                guard Int32(messageHeader.ifm_type) == RTM_IFINFO else { continue }
+                guard Int32(messageHeader.ifm_type) == RTM_IFINFO else { 
+                    skippedCount += 1
+                    continue 
+                }
                 guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_LOOPBACK)) == 0 else {
                     continue
                 }
@@ -149,6 +172,11 @@ final class NetTrafficStatReceiver {
                     )
                 }
             }
+        }
+
+        print("DEBUG: Parsing complete. Processed \(processedCount) messages, skipped \(skippedCount), found \(latestStats.count) interfaces")
+        for (interface, _) in latestStats {
+            print("DEBUG: Found interface: \(interface)")
         }
 
         return latestStats
