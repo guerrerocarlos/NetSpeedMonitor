@@ -86,9 +86,9 @@ final class NetTrafficStatReceiver {
         }
 
         print("DEBUG: sysctl fetch successful, dataLength: \(dataLength)")
-        guard dataLength > 0 else { 
+        guard dataLength > 0 else {
             print("DEBUG: dataLength is 0, returning empty dict")
-            return [:] 
+            return [:]
         }
 
         let now = Date()
@@ -98,9 +98,9 @@ final class NetTrafficStatReceiver {
 
         print("DEBUG: Starting to parse interface data")
         sysctlBuffer.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
-            guard var cursor = buffer.baseAddress else { 
+            guard var cursor = buffer.baseAddress else {
                 print("DEBUG: buffer.baseAddress is nil")
-                return 
+                return
             }
             let endPointer = cursor.advanced(by: dataLength)
             print("DEBUG: Will parse from cursor to endPointer, dataLength: \(dataLength)")
@@ -114,20 +114,39 @@ final class NetTrafficStatReceiver {
                     cursor = cursor.advanced(by: messageLength)
                 }
 
-                guard Int32(messageHeader.ifm_type) == RTM_IFINFO else { 
+                guard Int32(messageHeader.ifm_type) == RTM_IFINFO else {
                     skippedCount += 1
-                    continue 
-                }
-                guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_LOOPBACK)) == 0 else {
                     continue
                 }
-                guard (UInt32(messageHeader.ifm_flags) & UInt32(IFF_UP)) != 0 else { continue }
+
+                let flags = UInt32(messageHeader.ifm_flags)
+                let isLoopback = (flags & UInt32(IFF_LOOPBACK)) != 0
+                let isUp = (flags & UInt32(IFF_UP)) != 0
+
+                guard !isLoopback else {
+                    print("DEBUG: Skipping loopback interface (flags: \(flags))")
+                    continue
+                }
+                guard isUp else {
+                    print("DEBUG: Skipping interface that's not UP (flags: \(flags))")
+                    continue
+                }
 
                 var nameBuffer = [CChar](repeating: 0, count: Int(IF_NAMESIZE))
                 guard let namePointer = if_indextoname(UInt32(messageHeader.ifm_index), &nameBuffer)
-                else { continue }
+                else {
+                    print("DEBUG: if_indextoname failed for index \(messageHeader.ifm_index)")
+                    continue
+                }
                 let interfaceName = String(cString: namePointer)
-                guard !interfaceName.isEmpty else { continue }
+                guard !interfaceName.isEmpty else {
+                    print("DEBUG: Empty interface name for index \(messageHeader.ifm_index)")
+                    continue
+                }
+
+                print(
+                    "DEBUG: Processing interface \(interfaceName) (flags: \(flags), up: \(isUp), loopback: \(isLoopback))"
+                )
 
                 let inboundBytes = UInt64(messageHeader.ifm_data.ifi_ibytes)
                 let outboundBytes = UInt64(messageHeader.ifm_data.ifi_obytes)
@@ -174,7 +193,9 @@ final class NetTrafficStatReceiver {
             }
         }
 
-        print("DEBUG: Parsing complete. Processed \(processedCount) messages, skipped \(skippedCount), found \(latestStats.count) interfaces")
+        print(
+            "DEBUG: Parsing complete. Processed \(processedCount) messages, skipped \(skippedCount), found \(latestStats.count) interfaces"
+        )
         for (interface, _) in latestStats {
             print("DEBUG: Found interface: \(interface)")
         }

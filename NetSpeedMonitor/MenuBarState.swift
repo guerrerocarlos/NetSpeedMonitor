@@ -155,7 +155,9 @@ class MenuBarState: ObservableObject {
                 self.logger.info(
                     "Raw stats - deltaTime: \(netTrafficStat.deltaTime), inbound: \(netTrafficStat.inboundBytesPerSecond) B/s, outbound: \(netTrafficStat.outboundBytesPerSecond) B/s"
                 )
-                print("DEBUG: Raw stats - inbound: \(netTrafficStat.inboundBytesPerSecond) B/s, outbound: \(netTrafficStat.outboundBytesPerSecond) B/s")
+                print(
+                    "DEBUG: Raw stats - inbound: \(netTrafficStat.inboundBytesPerSecond) B/s, outbound: \(netTrafficStat.outboundBytesPerSecond) B/s"
+                )
 
                 // Apply unit multiplier (8x for bits, 1x for bytes)
                 self.downloadSpeed =
@@ -175,9 +177,11 @@ class MenuBarState: ObservableObject {
                 self.menuText =
                     "↑ \(String(format: "%6.2lf", self.uploadSpeed)) \(self.uploadMetric)/s\n↓ \(String(format: "%6.2lf", self.downloadSpeed)) \(self.downloadMetric)/s"
 
-                print("DEBUG: Final calculated speeds - Upload: \(self.uploadSpeed) MB/s, Download: \(self.downloadSpeed) MB/s")
+                print(
+                    "DEBUG: Final calculated speeds - Upload: \(self.uploadSpeed) MB/s, Download: \(self.downloadSpeed) MB/s"
+                )
                 print("DEBUG: Menu text: '\(self.menuText)'")
-                
+
                 self.logger.info("Final values: menuText='\(self.menuText, privacy: .public)'")
                 self.logger.info(
                     "deltaIn: \(String(format: "%.6f", self.downloadSpeed), privacy: .public) \(self.downloadMetric, privacy: .public)/s, deltaOut: \(String(format: "%.6f", self.uploadSpeed), privacy: .public) \(self.uploadMetric, privacy: .public)/s"
