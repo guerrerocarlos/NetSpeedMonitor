@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Network
 import os.log
 
 struct NetTrafficStat {
@@ -9,6 +10,89 @@ struct NetTrafficStat {
     let deltaOutboundBytes: UInt64
     let inboundBytesPerSecond: Double
     let outboundBytesPerSecond: Double
+}
+
+struct NetworkLatencyStat {
+    let timestamp: Date
+    let latencyMs: Double?
+    let isReachable: Bool
+}
+
+final class NetworkLatencyMeasurer {
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "NetSpeedMonitor",
+        category: "NetworkLatencyMeasurer")
+
+    private var connection: NWConnection?
+    private let targetHost = "8.8.8.8"  // Google's DNS server
+    private let targetPort: UInt16 = 53  // DNS port
+
+    func measureLatency() async -> NetworkLatencyStat {
+        do {
+            let latency = try await performPing()
+            return NetworkLatencyStat(
+                timestamp: Date(),
+                latencyMs: latency,
+                isReachable: true
+            )
+        } catch {
+            logger.warning("Latency measurement failed: \(error.localizedDescription)")
+            return NetworkLatencyStat(
+                timestamp: Date(),
+                latencyMs: nil,
+                isReachable: false
+            )
+        }
+    }
+
+    private func performPing() async throws -> Double {
+        return try await withCheckedThrowingContinuation { continuation in
+            let startTime = Date()
+
+            let endpoint = NWEndpoint.hostPort(
+                host: NWEndpoint.Host(targetHost),
+                port: NWEndpoint.Port(integerLiteral: targetPort)
+            )
+
+            let connection = NWConnection(to: endpoint, using: .tcp)
+            self.connection = connection
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    let latency = Date().timeIntervalSince(startTime) * 1000  // Convert to ms
+                    connection.cancel()
+                    continuation.resume(returning: latency)
+                case .failed(let error):
+                    connection.cancel()
+                    continuation.resume(throwing: error)
+                case .cancelled:
+                    break
+                default:
+                    break
+                }
+            }
+
+            connection.start(queue: .global())
+
+            // Timeout after 5 seconds
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) {
+                if connection.state != .ready && connection.state != .cancelled {
+                    connection.cancel()
+                    continuation.resume(
+                        throwing: NSError(
+                            domain: "NetworkLatency",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Timeout"]
+                        ))
+                }
+            }
+        }
+    }
+
+    deinit {
+        connection?.cancel()
+    }
 }
 
 final class NetTrafficStatReceiver {
@@ -30,10 +114,8 @@ final class NetTrafficStatReceiver {
     }
 
     func getNetTrafficStatMap() -> [String: NetTrafficStat] {
-        print("DEBUG: NetTrafficStatReceiver.getNetTrafficStatMap() called")
         do {
             let stats = try fetchStats()
-            print("DEBUG: fetchStats() returned \(stats.count) interfaces")
             logger.info("Found \(stats.count, privacy: .public) interfaces with stats")
             for (interface, stat) in stats {
                 logger.info(
@@ -42,7 +124,6 @@ final class NetTrafficStatReceiver {
             }
             return stats
         } catch {
-            print("DEBUG: fetchStats() threw error: \(error)")
             logger.warning(
                 "Failed to fetch network statistics: \(error.localizedDescription, privacy: .public)"
             )

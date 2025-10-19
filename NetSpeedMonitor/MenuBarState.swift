@@ -63,16 +63,17 @@ class MenuBarState: ObservableObject {
     @AppStorage("SpeedUnit") var speedUnit: SpeedUnit = .bits {
         didSet { updateSpeedUnitStatus() }
     }
-    @Published var menuText =
-        "↑ \(String(format: "%6.2lf", 0)) \(" b")/s\n↓ \(String(format: "%6.2lf", 0)) \(" b")/s"
+    @Published var menuText = "---ms   0.00MB/s\n ---    0.00MB/s"
 
     var currentIcon: NSImage {
         return MenuBarIconGenerator.generateIcon(text: menuText)
     }
 
     private var timer: Timer?
+    private var latencyTimer: Timer?
     private var primaryInterface: String?
     private var netTrafficStat = NetTrafficStatReceiver()
+    private var latencyMeasurer = NetworkLatencyMeasurer()
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "NetSpeedMonitor",
         category: "MenuBarState")
@@ -81,6 +82,8 @@ class MenuBarState: ObservableObject {
     private var downloadSpeed: Double = 0.0
     private var uploadMetric: String = "MB"
     private var downloadMetric: String = "MB"
+    private var latencyMs: Double? = nil
+    private var latencyHistory: [Double] = []
 
     private func currentAutoLaunchStatus() -> Bool {
         let service = SMAppService.mainApp
@@ -125,6 +128,37 @@ class MenuBarState: ObservableObject {
         self.downloadMetric = "MB"
     }
 
+    private func getNetworkQuality() -> String {
+        guard let currentLatency = latencyMs else { return "---" }
+
+        // Add to history (keep last 5 measurements)
+        latencyHistory.append(currentLatency)
+        if latencyHistory.count > 5 {
+            latencyHistory.removeFirst()
+        }
+
+        // Calculate average and variance for stability
+        let avgLatency = latencyHistory.reduce(0, +) / Double(latencyHistory.count)
+        let variance =
+            latencyHistory.map { pow($0 - avgLatency, 2) }.reduce(0, +)
+            / Double(latencyHistory.count)
+        let stability = variance < 100  // Low variance indicates stable connection
+
+        // Determine quality based on latency and stability
+        switch avgLatency {
+        case 0..<20:
+            return stability ? "Excel" : "Great"
+        case 20..<50:
+            return stability ? "Good" : "Fair"
+        case 50..<100:
+            return stability ? "Fair" : "Slow"
+        case 100..<200:
+            return "Slow"
+        default:
+            return "Poor"
+        }
+    }
+
     private func findPrimaryInterface() -> String? {
         let storeRef = SCDynamicStoreCreate(nil, "FindCurrentInterfaceIpMac" as CFString, nil, nil)
         let global = SCDynamicStoreCopyValue(storeRef, "State:/Network/Global/IPv4" as CFString)
@@ -140,16 +174,13 @@ class MenuBarState: ObservableObject {
             self.primaryInterface = self.findPrimaryInterface()
             guard let primaryInterface = self.primaryInterface else {
                 self.logger.warning("No primary interface found")
-                print("DEBUG: No primary interface found")
                 return
             }
 
             self.logger.info("Using primary interface: \(primaryInterface)")
-            print("DEBUG: Using primary interface: \(primaryInterface)")
             let netTrafficStatMap = self.netTrafficStat.getNetTrafficStatMap()
             self.logger.info(
                 "Found \(netTrafficStatMap.count) interfaces: \(Array(netTrafficStatMap.keys))")
-            print("DEBUG: Found \(netTrafficStatMap.count) interfaces")
 
             if let netTrafficStat = netTrafficStatMap[primaryInterface] {
                 self.logger.info(
@@ -174,13 +205,18 @@ class MenuBarState: ObservableObject {
                 self.downloadMetric = "MB"
                 self.uploadMetric = "MB"
 
-                self.menuText =
-                    "↑ \(String(format: "%6.2lf", self.uploadSpeed)) \(self.uploadMetric)/s\n↓ \(String(format: "%6.2lf", self.downloadSpeed)) \(self.downloadMetric)/s"
+                // Format compact menu text: latency + download on top, quality + upload on bottom
+                let latencyText =
+                    if let latency = self.latencyMs {
+                        String(format: "%.0f", latency) + "ms"
+                    } else {
+                        "---ms"
+                    }
 
-                print(
-                    "DEBUG: Final calculated speeds - Upload: \(self.uploadSpeed) MB/s, Download: \(self.downloadSpeed) MB/s"
-                )
-                print("DEBUG: Menu text: '\(self.menuText)'")
+                let quality = self.getNetworkQuality()
+
+                self.menuText =
+                    "\(latencyText.padding(toLength: 4, withPad: " ", startingAt: 0))  \(String(format: "%5.2f", self.downloadSpeed))MB/s\n\(quality.padding(toLength: 5, withPad: " ", startingAt: 0))  \(String(format: "%5.2f", self.uploadSpeed))MB/s"
 
                 self.logger.info("Final values: menuText='\(self.menuText, privacy: .public)'")
                 self.logger.info(
@@ -194,7 +230,38 @@ class MenuBarState: ObservableObject {
         RunLoop.current.add(timer, forMode: .common)
         self.timer = timer
         logger.info("startTimer")
-        print("DEBUG: Timer started with interval \(self.netSpeedUpdateInterval.rawValue)s")
+
+        // Start latency measurement timer (every 10 seconds)
+        startLatencyTimer()
+    }
+
+    private func startLatencyTimer() {
+        stopLatencyTimer()
+
+        let latencyTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
+            Task {
+                await self.updateLatency()
+            }
+        }
+        RunLoop.current.add(latencyTimer, forMode: .common)
+        self.latencyTimer = latencyTimer
+        logger.info("startLatencyTimer")
+
+        // Measure latency immediately
+        Task {
+            await self.updateLatency()
+        }
+    }
+
+    private func updateLatency() async {
+        let latencyStat = await latencyMeasurer.measureLatency()
+
+        await MainActor.run {
+            self.latencyMs = latencyStat.latencyMs
+            self.logger.info(
+                "Latency: \(latencyStat.latencyMs?.description ?? "nil") ms, reachable: \(latencyStat.isReachable)"
+            )
+        }
     }
 
     private func stopTimer() {
@@ -203,10 +270,14 @@ class MenuBarState: ObservableObject {
         logger.info("stopTimer")
     }
 
+    private func stopLatencyTimer() {
+        self.latencyTimer?.invalidate()
+        self.latencyTimer = nil
+        logger.info("stopLatencyTimer")
+    }
+
     init() {
-        print("DEBUG: MenuBarState init() called")
         DispatchQueue.main.async {
-            print("DEBUG: Starting async initialization")
             self.autoLaunchEnabled = self.currentAutoLaunchStatus()
             self.startTimer()
         }
@@ -215,6 +286,7 @@ class MenuBarState: ObservableObject {
     deinit {
         DispatchQueue.main.async {
             self.stopTimer()
+            self.stopLatencyTimer()
         }
     }
 }
