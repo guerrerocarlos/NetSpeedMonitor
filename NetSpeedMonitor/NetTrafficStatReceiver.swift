@@ -133,12 +133,22 @@ final class NetTrafficStatReceiver {
                 }
 
                 var nameBuffer = [CChar](repeating: 0, count: Int(IF_NAMESIZE))
-                guard let namePointer = if_indextoname(UInt32(messageHeader.ifm_index), &nameBuffer)
-                else {
-                    print("DEBUG: if_indextoname failed for index \(messageHeader.ifm_index)")
-                    continue
+                let interfaceName = nameBuffer.withUnsafeMutableBufferPointer { bufferPointer in
+                    guard let baseAddress = bufferPointer.baseAddress else {
+                        print(
+                            "DEBUG: Failed to get buffer base address for index \(messageHeader.ifm_index)"
+                        )
+                        return ""
+                    }
+                    guard
+                        let namePointer = if_indextoname(
+                            UInt32(messageHeader.ifm_index), baseAddress)
+                    else {
+                        print("DEBUG: if_indextoname failed for index \(messageHeader.ifm_index)")
+                        return ""
+                    }
+                    return String(cString: namePointer)
                 }
-                let interfaceName = String(cString: namePointer)
                 guard !interfaceName.isEmpty else {
                     print("DEBUG: Empty interface name for index \(messageHeader.ifm_index)")
                     continue
