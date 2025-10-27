@@ -66,7 +66,7 @@ class MenuBarState: ObservableObject {
     @AppStorage("ShowLatencyAndQuality") var showLatencyAndQuality: Bool = true {
         didSet { updateDisplayFormat() }
     }
-    @Published var menuText = "↓  0.00MB/s\n↑  0.00MB/s"
+    @Published var menuText = "--ms  0.0MB/s\n---%  0.0MB/s"
 
     var currentIcon: NSImage {
         return MenuBarIconGenerator.generateIcon(text: menuText)
@@ -153,19 +153,25 @@ class MenuBarState: ObservableObject {
             / Double(latencyHistory.count)
         let stability = variance < 100  // Low variance indicates stable connection
 
-        // Determine quality based on latency and stability (using color emojis)
+        // Calculate quality percentage based on latency and stability
+        let baseQuality: Double
         switch avgLatency {
         case 0..<20:
-            return stability ? "🟢" : "🟡"  // Green for excellent, yellow for great
+            baseQuality = 95 + (20 - avgLatency) / 20 * 5  // 95-100%
         case 20..<50:
-            return stability ? "🟡" : "🟠"  // Yellow for good, orange for OK
+            baseQuality = 80 + (50 - avgLatency) / 30 * 15  // 80-95%
         case 50..<100:
-            return stability ? "🟠" : "🔴"  // Orange for OK, red for slow
+            baseQuality = 50 + (100 - avgLatency) / 50 * 30  // 50-80%
         case 100..<200:
-            return "🔴"  // Red for slow
+            baseQuality = 20 + (200 - avgLatency) / 100 * 30  // 20-50%
         default:
-            return "⚫"  // Black for poor
+            baseQuality = max(0, 20 - (avgLatency - 200) / 10)  // 0-20%
         }
+
+        // Adjust for stability (reduce quality if connection is unstable)
+        let qualityPercentage = stability ? baseQuality : max(baseQuality - 15, 0)
+
+        return String(format: "%2.0f%%", qualityPercentage)
     }
 
     private func generateResponsiveMenuText() -> String {
