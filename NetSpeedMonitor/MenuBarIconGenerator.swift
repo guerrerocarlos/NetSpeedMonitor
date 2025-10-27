@@ -6,7 +6,7 @@ final class MenuBarIconGenerator {
         text: String,
         font: NSFont = .monospacedSystemFont(ofSize: 8, weight: .semibold)
     ) -> NSImage {
-        let image = NSImage(size: NSSize(width: 66, height: 22), flipped: false) { rect in
+        let image = NSImage(size: NSSize(width: 90, height: 22), flipped: false) { rect in
             
             let style = NSMutableParagraphStyle()
             style.alignment = .right

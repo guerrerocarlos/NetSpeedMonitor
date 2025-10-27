@@ -63,7 +63,7 @@ class MenuBarState: ObservableObject {
     @AppStorage("SpeedUnit") var speedUnit: SpeedUnit = .bits {
         didSet { updateSpeedUnitStatus() }
     }
-    @Published var menuText = "---ms   0.00MB/s\n ---    0.00MB/s"
+    @Published var menuText = "--ms 0.00MB/s\n--- 0.00MB/s"
 
     var currentIcon: NSImage {
         return MenuBarIconGenerator.generateIcon(text: menuText)
@@ -144,19 +144,62 @@ class MenuBarState: ObservableObject {
             / Double(latencyHistory.count)
         let stability = variance < 100  // Low variance indicates stable connection
 
-        // Determine quality based on latency and stability
+        // Determine quality based on latency and stability (using shorter, consistent labels)
         switch avgLatency {
         case 0..<20:
-            return stability ? "Excel" : "Great"
+            return stability ? "Exc" : "Grt"  // Excellent/Great
         case 20..<50:
-            return stability ? "Good" : "Fair"
+            return stability ? "Gd" : "Ok"  // Good/OK
         case 50..<100:
-            return stability ? "Fair" : "Slow"
+            return stability ? "Ok" : "Sl"  // OK/Slow
         case 100..<200:
-            return "Slow"
+            return "Sl"  // Slow
         default:
-            return "Poor"
+            return "Pr"  // Poor
         }
+    }
+
+    private func generateResponsiveMenuText() -> String {
+        let latencyText =
+            if let latency = self.latencyMs {
+                String(format: "%.0f", latency) + "ms"
+            } else {
+                "--ms"
+            }
+
+        let quality = self.getNetworkQuality()
+
+        // Define multiple format levels from most detailed to most compact
+        let formats = [
+            // Level 1: Full detail
+            "\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))MB/s\n\(quality) \(String(format: "%5.1f", self.uploadSpeed))MB/s",
+
+            // Level 2: Medium detail
+            "\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))MB\n\(quality) \(String(format: "%4.1f", self.uploadSpeed))MB",
+
+            // Level 3: Compact
+            "\(latencyText) \(String(format: "%3.1f", self.downloadSpeed))M\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))M",
+
+            // Level 4: Very compact
+            "\(String(format: "%.0f", self.latencyMs ?? 0)) \(String(format: "%3.1f", self.downloadSpeed))\n\(quality.prefix(2)) \(String(format: "%3.1f", self.uploadSpeed))",
+
+            // Level 5: Ultra compact (fallback)
+            "\(String(format: "%.1f", self.downloadSpeed))\n\(String(format: "%.1f", self.uploadSpeed))",
+        ]
+
+        let maxWidth: CGFloat = 85  // Increased available width in menu bar
+        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .semibold)
+
+        // Try each format level until we find one that fits
+        for format in formats {
+            let textSize = format.size(withAttributes: [.font: font])
+            if textSize.width <= maxWidth {
+                return format
+            }
+        }
+
+        // Return the most compact format as fallback
+        return formats.last!
     }
 
     private func findPrimaryInterface() -> String? {
@@ -205,18 +248,8 @@ class MenuBarState: ObservableObject {
                 self.downloadMetric = "MB"
                 self.uploadMetric = "MB"
 
-                // Format compact menu text: latency + download on top, quality + upload on bottom
-                let latencyText =
-                    if let latency = self.latencyMs {
-                        String(format: "%.0f", latency) + "ms"
-                    } else {
-                        "---ms"
-                    }
-
-                let quality = self.getNetworkQuality()
-
-                self.menuText =
-                    "\(latencyText.padding(toLength: 4, withPad: " ", startingAt: 0))  \(String(format: "%5.2f", self.downloadSpeed))MB/s\n\(quality.padding(toLength: 5, withPad: " ", startingAt: 0))  \(String(format: "%5.2f", self.uploadSpeed))MB/s"
+                // Generate responsive menu text based on available width
+                self.menuText = self.generateResponsiveMenuText()
 
                 self.logger.info("Final values: menuText='\(self.menuText, privacy: .public)'")
                 self.logger.info(
