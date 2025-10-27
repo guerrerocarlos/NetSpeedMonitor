@@ -6,21 +6,23 @@ public let logger = Logger(subsystem: loggerSubsystem, category: "elegracer")
 
 struct MenuContentView: View {
     @EnvironmentObject var menuBarState: MenuBarState
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Section {
                 HStack {
                     Toggle("Start at Login", isOn: $menuBarState.autoLaunchEnabled)
                         .toggleStyle(.button)
-                        .onChange(of: menuBarState.autoLaunchEnabled, initial: false) {oldState, newState in
-                            logger.info("Toggle::StartAtLogin: oldState：\(oldState), newState: \(newState)")
+                        .onChange(of: menuBarState.autoLaunchEnabled, initial: false) {
+                            oldState, newState in
+                            logger.info(
+                                "Toggle::StartAtLogin: oldState：\(oldState), newState: \(newState)")
                         }
                 }.fixedSize()
             }
-            
+
             Divider()
-            
+
             Section {
                 HStack {
                     ForEach(NetSpeedUpdateInterval.allCases) { interval in
@@ -37,9 +39,9 @@ struct MenuContentView: View {
             } header: {
                 Text("Update Interval")
             }
-            
+
             Divider()
-            
+
             Section {
                 HStack {
                     ForEach(SpeedUnit.allCases) { unit in
@@ -56,9 +58,24 @@ struct MenuContentView: View {
             } header: {
                 Text("Speed Unit")
             }
-            
+
             Divider()
-            
+
+            Section {
+                HStack {
+                    Toggle("Show Latency & Quality", isOn: $menuBarState.showLatencyAndQuality)
+                        .toggleStyle(.button)
+                        .onChange(of: menuBarState.showLatencyAndQuality, initial: false) {
+                            oldState, newState in
+                            logger.info(
+                                "Toggle::ShowLatencyAndQuality: oldState：\(oldState), newState: \(newState)"
+                            )
+                        }
+                }.fixedSize()
+            }
+
+            Divider()
+
             Section {
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)

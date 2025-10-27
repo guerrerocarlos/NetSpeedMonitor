@@ -63,7 +63,10 @@ class MenuBarState: ObservableObject {
     @AppStorage("SpeedUnit") var speedUnit: SpeedUnit = .bits {
         didSet { updateSpeedUnitStatus() }
     }
-    @Published var menuText = "--ms 0.00MB/s\n--- 0.00MB/s"
+    @AppStorage("ShowLatencyAndQuality") var showLatencyAndQuality: Bool = true {
+        didSet { updateDisplayFormat() }
+    }
+    @Published var menuText = "↓  0.00MB/s\n↑  0.00MB/s"
 
     var currentIcon: NSImage {
         return MenuBarIconGenerator.generateIcon(text: menuText)
@@ -128,6 +131,12 @@ class MenuBarState: ObservableObject {
         self.downloadMetric = "MB"
     }
 
+    private func updateDisplayFormat() {
+        logger.info("showLatencyAndQuality changed to \(self.showLatencyAndQuality)")
+        // Update menu text immediately to reflect the new setting
+        self.menuText = self.generateResponsiveMenuText()
+    }
+
     private func getNetworkQuality() -> String {
         guard let currentLatency = latencyMs else { return "---" }
 
@@ -144,62 +153,69 @@ class MenuBarState: ObservableObject {
             / Double(latencyHistory.count)
         let stability = variance < 100  // Low variance indicates stable connection
 
-        // Determine quality based on latency and stability (using shorter, consistent labels)
+        // Determine quality based on latency and stability (using color emojis)
         switch avgLatency {
         case 0..<20:
-            return stability ? "Exc" : "Grt"  // Excellent/Great
+            return stability ? "🟢" : "🟡"  // Green for excellent, yellow for great
         case 20..<50:
-            return stability ? "Gd" : "Ok"  // Good/OK
+            return stability ? "🟡" : "🟠"  // Yellow for good, orange for OK
         case 50..<100:
-            return stability ? "Ok" : "Sl"  // OK/Slow
+            return stability ? "🟠" : "🔴"  // Orange for OK, red for slow
         case 100..<200:
-            return "Sl"  // Slow
+            return "🔴"  // Red for slow
         default:
-            return "Pr"  // Poor
+            return "⚫"  // Black for poor
         }
     }
 
     private func generateResponsiveMenuText() -> String {
-        let latencyText =
-            if let latency = self.latencyMs {
-                String(format: "%.0f", latency) + "ms"
-            } else {
-                "--ms"
+        if showLatencyAndQuality {
+            // Show latency and quality with responsive formatting
+            let latencyText =
+                if let latency = self.latencyMs {
+                    String(format: "%.0f", latency) + "ms"
+                } else {
+                    "--ms"
+                }
+
+            let quality = self.getNetworkQuality()
+
+            // Define multiple format levels from most detailed to most compact
+            let formats = [
+                // Level 1: Full detail
+                "\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))MB/s\n\(quality) \(String(format: "%5.1f", self.uploadSpeed))MB/s",
+
+                // Level 2: Medium detail
+                "\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))MB\n\(quality) \(String(format: "%4.1f", self.uploadSpeed))MB",
+
+                // Level 3: Compact
+                "\(latencyText) \(String(format: "%3.1f", self.downloadSpeed))M\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))M",
+
+                // Level 4: Very compact
+                "\(String(format: "%.0f", self.latencyMs ?? 0)) \(String(format: "%3.1f", self.downloadSpeed))\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))",
+
+                // Level 5: Ultra compact (fallback)
+                "\(String(format: "%.1f", self.downloadSpeed))\n\(String(format: "%.1f", self.uploadSpeed))",
+            ]
+
+            let maxWidth: CGFloat = 85  // Available width in menu bar
+            let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .semibold)
+
+            // Try each format level until we find one that fits
+            for format in formats {
+                let textSize = format.size(withAttributes: [.font: font])
+                if textSize.width <= maxWidth {
+                    return format
+                }
             }
 
-        let quality = self.getNetworkQuality()
-
-        // Define multiple format levels from most detailed to most compact
-        let formats = [
-            // Level 1: Full detail
-            "\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))MB/s\n\(quality) \(String(format: "%5.1f", self.uploadSpeed))MB/s",
-
-            // Level 2: Medium detail
-            "\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))MB\n\(quality) \(String(format: "%4.1f", self.uploadSpeed))MB",
-
-            // Level 3: Compact
-            "\(latencyText) \(String(format: "%3.1f", self.downloadSpeed))M\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))M",
-
-            // Level 4: Very compact
-            "\(String(format: "%.0f", self.latencyMs ?? 0)) \(String(format: "%3.1f", self.downloadSpeed))\n\(quality.prefix(2)) \(String(format: "%3.1f", self.uploadSpeed))",
-
-            // Level 5: Ultra compact (fallback)
-            "\(String(format: "%.1f", self.downloadSpeed))\n\(String(format: "%.1f", self.uploadSpeed))",
-        ]
-
-        let maxWidth: CGFloat = 85  // Increased available width in menu bar
-        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .semibold)
-
-        // Try each format level until we find one that fits
-        for format in formats {
-            let textSize = format.size(withAttributes: [.font: font])
-            if textSize.width <= maxWidth {
-                return format
-            }
+            // Return the most compact format as fallback
+            return formats.last!
+        } else {
+            // Simple speed-only format
+            return
+                "↓ \(String(format: "%5.1f", self.downloadSpeed))MB/s\n↑ \(String(format: "%5.1f", self.uploadSpeed))MB/s"
         }
-
-        // Return the most compact format as fallback
-        return formats.last!
     }
 
     private func findPrimaryInterface() -> String? {
