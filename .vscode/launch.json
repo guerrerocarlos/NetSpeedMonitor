@@ -6,8 +6,9 @@
             "args": [],
             "cwd": "${workspaceFolder:NetSpeedMonitor}",
             "name": "Debug NetSpeedMonitor",
-            "program": "${workspaceFolder:NetSpeedMonitor}/.build/debug/NetSpeedMonitor",
-            "preLaunchTask": "swift: Build Debug NetSpeedMonitor"
+            "preLaunchTask": "swift: Build Debug NetSpeedMonitor",
+            "target": "NetSpeedMonitor",
+            "configuration": "debug"
         },
         {
             "type": "swift",
@@ -15,8 +16,9 @@
             "args": [],
             "cwd": "${workspaceFolder:NetSpeedMonitor}",
             "name": "Release NetSpeedMonitor",
-            "program": "${workspaceFolder:NetSpeedMonitor}/.build/release/NetSpeedMonitor",
-            "preLaunchTask": "swift: Build Release NetSpeedMonitor"
+            "preLaunchTask": "swift: Build Release NetSpeedMonitor",
+            "target": "NetSpeedMonitor",
+            "configuration": "release"
         }
     ]
 }
