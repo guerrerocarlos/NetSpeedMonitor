@@ -131,7 +131,7 @@ sudo xattr -rd com.apple.quarantine /Applications/NetSpeedMonitor.app
 
 ### Cask Audit Failures
 Common issues:
-- Wrong SHA256: Recalculate with `shasum -a 256 NetSpeedMonitor.zip`
+- Wrong SHA256: Recalculate with `shasum -a 256 NetSpeedMonitor.app.zip`
 - URL not accessible: Ensure GitHub release is published and public
 - Version mismatch: Ensure tag matches version in cask
 

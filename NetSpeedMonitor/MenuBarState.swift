@@ -69,7 +69,8 @@ class MenuBarState: ObservableObject {
     @Published var menuText = "--ms  0.0MB/s\n---%  0.0MB/s"
 
     var currentIcon: NSImage {
-        return MenuBarIconGenerator.generateIcon(text: menuText)
+        let width: CGFloat = showLatencyAndQuality ? 85 : 65
+        return MenuBarIconGenerator.generateIcon(text: menuText, width: width)
     }
 
     private var timer: Timer?
@@ -185,14 +186,15 @@ class MenuBarState: ObservableObject {
                 }
 
             let quality = self.getNetworkQuality()
+            let unit = self.speedUnit.shortUnit
 
             // Define multiple format levels from most detailed to most compact
             let formats = [
                 // Level 1: Full detail
-                "\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))MB/s\n\(quality) \(String(format: "%5.1f", self.uploadSpeed))MB/s",
+                "\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))M\(unit)/s\n\(quality) \(String(format: "%5.1f", self.uploadSpeed))M\(unit)/s",
 
                 // Level 2: Medium detail
-                "\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))MB\n\(quality) \(String(format: "%4.1f", self.uploadSpeed))MB",
+                "\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))M\(unit)\n\(quality) \(String(format: "%4.1f", self.uploadSpeed))M\(unit)",
 
                 // Level 3: Compact
                 "\(latencyText) \(String(format: "%3.1f", self.downloadSpeed))M\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))M",
@@ -218,9 +220,10 @@ class MenuBarState: ObservableObject {
             // Return the most compact format as fallback
             return formats.last!
         } else {
-            // Simple speed-only format
+            // Simple speed-only format (no arrows, no latency/quality)
+            let unit = self.speedUnit.shortUnit
             return
-                "↓ \(String(format: "%5.1f", self.downloadSpeed))MB/s\n↑ \(String(format: "%5.1f", self.uploadSpeed))MB/s"
+                "\(String(format: "%5.1f", self.downloadSpeed))M\(unit)/s\n\(String(format: "%5.1f", self.uploadSpeed))M\(unit)/s"
         }
     }
 

@@ -30,14 +30,14 @@ jobs:
       run: |
         cd .build/dist
         # Ensure we have a clean zip
-        rm -f NetSpeedMonitor.zip
-        zip -r NetSpeedMonitor.zip NetSpeedMonitor.app
+        rm -f NetSpeedMonitor.app.zip
+        zip -r NetSpeedMonitor.app.zip NetSpeedMonitor.app
         
     - name: Calculate SHA256
       id: sha256
       run: |
         cd .build/dist
-        SHA256=$(shasum -a 256 NetSpeedMonitor.zip | awk '{print $1}')
+        SHA256=$(shasum -a 256 NetSpeedMonitor.app.zip | awk '{print $1}')
         echo "sha256=$SHA256" >> $GITHUB_OUTPUT
         echo "SHA256: $SHA256"
     
@@ -56,7 +56,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: .build/dist/NetSpeedMonitor.zip
+        files: .build/dist/NetSpeedMonitor.app.zip
         body: |
           NetSpeed Monitor v${{ steps.version.outputs.version }}
           
@@ -69,7 +69,7 @@ jobs:
           ```
           
           ### Manual Installation
-          1. Download NetSpeedMonitor.zip
+          1. Download NetSpeedMonitor.app.zip
           2. Extract the zip file
           3. Move NetSpeedMonitor.app to /Applications/
           4. Remove quarantine attribute:

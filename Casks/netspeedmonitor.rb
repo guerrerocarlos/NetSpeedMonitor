@@ -2,7 +2,7 @@ cask "netspeedmonitor" do
   version "1.0.0"
   sha256 :no_check
 
-  url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/v#{version}/NetSpeedMonitor.zip"
+  url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/v#{version}/NetSpeedMonitor.app.zip"
   name "NetSpeed Monitor"
   desc "macOS menu bar application that displays real-time network upload/download speeds"
   homepage "https://github.com/guerrerocarlos/NetSpeedMonitor"
