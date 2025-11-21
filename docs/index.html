@@ -12,20 +12,24 @@
     <meta property="og:url" content="https://guerrerocarlos.github.io/NetSpeedMonitor/">
     <meta property="og:title" content="NetSpeedMonitor - macOS Network Speed Monitor">
     <meta property="og:description" content="Real-time network speed monitoring for macOS. Track upload/download speeds & latency.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/guerrerocarlos/NetSpeedMonitor/master/screenshot.png">
-    <meta property="og:image:width" content="800">
-    <meta property="og:image:height" content="418">
+    <meta property="og:image" content="https://guerrerocarlos.github.io/NetSpeedMonitor/link-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://guerrerocarlos.github.io/NetSpeedMonitor/">
     <meta property="twitter:title" content="NetSpeedMonitor - macOS Network Speed Monitor">
     <meta property="twitter:description" content="Real-time network speed monitoring for macOS. Track upload/download speeds & latency.">
-    <meta property="twitter:image" content="https://raw.githubusercontent.com/guerrerocarlos/NetSpeedMonitor/master/screenshot.png">
+    <meta property="twitter:image" content="https://guerrerocarlos.github.io/NetSpeedMonitor/link-preview.png">
 
     <!-- Apple -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="icon.png">
 
     <title>NetSpeedMonitor - Real-time Network Speed Monitor for macOS</title>
     
@@ -100,14 +104,13 @@
             width: 120px;
             height: 120px;
             margin: 0 auto 30px;
-            background: var(--gradient);
             border-radius: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 60px;
             box-shadow: 0 20px 60px rgba(0, 122, 255, 0.3);
             animation: float 3s ease-in-out infinite;
+            overflow: hidden;
         }
 
         @keyframes float {
@@ -410,7 +413,9 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <div class="logo">📊</div>
+            <div class="logo">
+                <img src="icon.png" alt="NetSpeedMonitor Icon" style="width: 100%; height: 100%; border-radius: 28px;">
+            </div>
             <h1>NetSpeedMonitor</h1>
             <p class="tagline">
                 A minimal macOS menu bar app for real-time network speed monitoring with latency tracking
