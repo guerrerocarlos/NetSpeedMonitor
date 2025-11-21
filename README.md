@@ -1,5 +1,7 @@
 # NetSpeedMonitor
 
+> 🌐 **[View the official website](https://guerrerocarlos.github.io/NetSpeedMonitor/)**
+
 Just a minimal menu bar macOS app that displays real-time network upload/download speeds.
 
 It runs `sysctl` with c interface in a repeating timer.
