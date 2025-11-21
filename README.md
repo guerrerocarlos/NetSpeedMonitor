@@ -1,12 +1,29 @@
 # NetSpeedMonitor
 
-Just a minimal menu bar macOS app.
+Just a minimal menu bar macOS app that displays real-time network upload/download speeds.
 
 It runs `sysctl` with c interface in a repeating timer.
 
 Use at your own risk.
 
-# Functions
+## Installation
+
+### Via Homebrew (Recommended)
+```bash
+brew tap guerrerocarlos/tap
+brew install --cask netspeedmonitor
+```
+
+### Manual Installation
+1. Download the latest release from [Releases](https://github.com/guerrerocarlos/NetSpeedMonitor/releases)
+2. Extract NetSpeedMonitor.zip
+3. Move NetSpeedMonitor.app to /Applications/
+4. Remove quarantine attribute:
+   ```bash
+   sudo xattr -rd com.apple.quarantine /Applications/NetSpeedMonitor.app
+   ```
+
+## Functions
 
 1. Start at login.
 2. Set different update intervals, now with 5 options: 1s, 2s, 5s, 10s, 30s.
@@ -24,7 +41,11 @@ Any PR for feature enhancement or compatibility improvement is welcomed!
 
 ![](./screenshot.png)
 
-## Building
+## System Requirements
+
+- macOS 14.0 (Sonoma) or later
+
+## Building from Source
 
 ### Xcode
 1. Install the full Xcode (15 or newer) and set it active: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
