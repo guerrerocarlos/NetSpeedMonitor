@@ -1,0 +1,177 @@
+name: Auto Version and Release
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  version-and-release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate Version Number
+      id: version
+      run: |
+        # Generate version based on date: v1.YYMMDD.run_number
+        DATE_VERSION=$(date +"%y%m%d")
+        RUN_NUMBER="${{ github.run_number }}"
+        VERSION="v1.${DATE_VERSION}.${RUN_NUMBER}"
+        
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Generated version: ${VERSION}"
+
+    - name: Check if tag exists
+      id: check_tag
+      run: |
+        if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Tag ${{ steps.version.outputs.version }} already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Tag ${{ steps.version.outputs.version }} does not exist"
+        fi
+
+    - name: Update Info.plist with version
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        # Remove 'v' prefix for CFBundleShortVersionString
+        VERSION_NUMBER="${VERSION#v}"
+        
+        # Update Info.plist
+        /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${VERSION_NUMBER}" NetSpeedMonitor/Info.plist 2>/dev/null || \
+        /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION_NUMBER}" NetSpeedMonitor/Info.plist
+        
+        /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ github.run_number }}" NetSpeedMonitor/Info.plist 2>/dev/null || \
+        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" NetSpeedMonitor/Info.plist
+        
+        cat NetSpeedMonitor/Info.plist
+
+    - name: Build Universal Binary
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        mkdir -p build
+        xcodebuild \
+          -project NetSpeedMonitor.xcodeproj \
+          -scheme NetSpeedMonitor \
+          -configuration Release \
+          ARCHS="x86_64 arm64" \
+          ONLY_ACTIVE_ARCH=NO \
+          -destination 'generic/platform=macOS' \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          CONFIGURATION_BUILD_DIR=build/Release \
+          clean build
+
+    - name: Verify Architectures
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        EXECUTABLE="build/Release/NetSpeedMonitor.app/Contents/MacOS/NetSpeedMonitor"
+        LIPO_OUTPUT=$(lipo -info "$EXECUTABLE")
+        echo "Binary Architectures: $LIPO_OUTPUT"
+        if [[ ! $LIPO_OUTPUT == *"x86_64"* || ! $LIPO_OUTPUT == *"arm64"* ]]; then
+          echo "::error::Missing required architectures!"
+          exit 1
+        fi
+
+    - name: Sign and Package
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        # Sign the app
+        codesign --force --deep --sign - \
+          --options=runtime \
+          --timestamp \
+          "build/Release/NetSpeedMonitor.app"
+        
+        # Sanitize metadata
+        xattr -cr "build/Release/NetSpeedMonitor.app"
+        plutil -replace CFBundleSupportedPlatforms -json '["MacOSX"]' \
+          "build/Release/NetSpeedMonitor.app/Contents/Info.plist"
+        
+        # Create distribution package
+        cd build/Release
+        ditto -c -k --keepParent NetSpeedMonitor.app NetSpeedMonitor.zip
+        shasum -a 256 NetSpeedMonitor.zip > NetSpeedMonitor.sha256
+
+    - name: Generate Release Notes
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        cat > release_notes.md << EOF
+        ## NetSpeedMonitor ${VERSION}
+        
+        **Build Date:** $(date '+%Y-%m-%d %H:%M:%S UTC')
+        **Commit:** ${{ github.sha }}
+        
+        ### What's New
+        - Auto-generated release from commit: \`${GITHUB_SHA:0:7}\`
+        - Includes latest connectivity detection features
+        
+        ### Installation
+        
+        Download \`NetSpeedMonitor.zip\`, extract it, and run:
+        
+        \`\`\`bash
+        sudo xattr -rd com.apple.quarantine ./NetSpeedMonitor.app
+        \`\`\`
+        
+        Then drag the app to your Applications folder.
+        
+        ### Compatibility
+        - **Minimum macOS:** 14.6
+        - **Architectures:** Apple Silicon (arm64) + Intel (x86_64)
+        
+        ### SHA256 Checksum
+        See \`NetSpeedMonitor.sha256\` for verification.
+        EOF
+
+    - name: Commit version changes
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add NetSpeedMonitor/Info.plist
+        git diff --cached --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+
+    - name: Create and Push Tag
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        git tag -a "${VERSION}" -m "Release ${VERSION}"
+        git push origin "${VERSION}"
+        # Also push the version commit
+        git push origin HEAD:${{ github.ref_name }} || true
+
+    - name: Create GitHub Release
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: NetSpeedMonitor ${{ steps.version.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          build/Release/NetSpeedMonitor.zip
+          build/Release/NetSpeedMonitor.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Build Artifacts
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: actions/upload-artifact@v4
+      with:
+        name: NetSpeedMonitor-${{ steps.version.outputs.version }}
+        path: |
+          build/Release/NetSpeedMonitor.zip
+          build/Release/NetSpeedMonitor.sha256
+          release_notes.md
