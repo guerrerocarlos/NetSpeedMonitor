@@ -5,7 +5,8 @@ final class MenuBarIconGenerator {
     static func generateIcon(
         text: String,
         width: CGFloat = 90,
-        font: NSFont = .monospacedSystemFont(ofSize: 8, weight: .semibold)
+        font: NSFont = .monospacedSystemFont(ofSize: 8, weight: .semibold),
+        textColor: NSColor? = nil
     ) -> NSImage {
         let image = NSImage(size: NSSize(width: width, height: 22), flipped: false) { rect in
 
@@ -14,11 +15,16 @@ final class MenuBarIconGenerator {
             //            style.maximumLineHeight = 10
             //            style.paragraphSpacing = -5
 
-            let attributes: [NSAttributedString.Key: Any] = [
+            var attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 //                .baselineOffset: 0,
                 .paragraphStyle: style,
             ]
+            
+            // Add color if specified (for offline/restored states)
+            if let textColor = textColor {
+                attributes[.foregroundColor] = textColor
+            }
 
             let textSize = text.size(withAttributes: attributes)
             let textRect = NSRect(

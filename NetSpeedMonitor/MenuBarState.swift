@@ -67,15 +67,20 @@ class MenuBarState: ObservableObject {
         didSet { updateDisplayFormat() }
     }
     @Published var menuText = "--ms  0.0MB/s\n---%  0.0MB/s"
+    @Published var isOnline: Bool = true
+    @Published var connectionJustRestored: Bool = false
 
     var currentIcon: NSImage {
         let width: CGFloat = showLatencyAndQuality ? 85 : 65
-        return MenuBarIconGenerator.generateIcon(text: menuText, width: width)
+        let color: NSColor? = isOnline ? (connectionJustRestored ? .systemGreen : nil) : .systemRed
+        return MenuBarIconGenerator.generateIcon(text: menuText, width: width, textColor: color)
     }
 
     private var timer: Timer?
     private var latencyTimer: Timer?
+    private var restoredTimer: Timer?
     private var primaryInterface: String?
+    private var wasOnline: Bool = true
     private var netTrafficStat = NetTrafficStatReceiver()
     private var latencyMeasurer = NetworkLatencyMeasurer()
     private let logger = Logger(
@@ -316,6 +321,26 @@ class MenuBarState: ObservableObject {
 
         await MainActor.run {
             self.latencyMs = latencyStat.latencyMs
+            let previousOnlineState = self.isOnline
+            self.isOnline = latencyStat.isReachable
+            
+            // Detect connection restoration
+            if !previousOnlineState && self.isOnline {
+                self.logger.info("🟢 Connection RESTORED")
+                self.connectionJustRestored = true
+                
+                // Reset the green color after 5 seconds
+                self.restoredTimer?.invalidate()
+                self.restoredTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+                    self.connectionJustRestored = false
+                    self.logger.info("Restored indicator cleared")
+                }
+            } else if previousOnlineState && !self.isOnline {
+                self.logger.warning("🔴 Connection LOST")
+                self.connectionJustRestored = false
+                self.restoredTimer?.invalidate()
+            }
+            
             self.logger.info(
                 "Latency: \(latencyStat.latencyMs?.description ?? "nil") ms, reachable: \(latencyStat.isReachable)"
             )
@@ -345,6 +370,7 @@ class MenuBarState: ObservableObject {
         DispatchQueue.main.async {
             self.stopTimer()
             self.stopLatencyTimer()
+            self.restoredTimer?.invalidate()
         }
     }
 }
