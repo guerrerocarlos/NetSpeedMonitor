@@ -240,6 +240,9 @@ jobs:
           echo "No changes to commit"
         else
           git commit -m "chore: update NetSpeedMonitor to ${VERSION}"
+          # Use gh to push (handles authentication)
+          gh repo set-default guerrerocarlos/homebrew-tap
+          gh auth setup-git
           git push origin "${DEFAULT_BRANCH}"
           echo "✅ Successfully updated Homebrew tap"
         fi
