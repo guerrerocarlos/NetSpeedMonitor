@@ -185,9 +185,20 @@ jobs:
         VERSION_NUMBER="${VERSION#v}"
         SHA256=$(cat build/Release/NetSpeedMonitor.sha256 | awk '{print $1}')
         
-        # Clone the homebrew-tap repository
-        git clone https://x-access-token:${GITHUB_TOKEN}@github.com/guerrerocarlos/homebrew-tap.git tap-repo
+        # Configure git credentials
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Clone the homebrew-tap repository with token
+        git clone "https://github-actions:${GITHUB_TOKEN}@github.com/guerrerocarlos/homebrew-tap.git" tap-repo
         cd tap-repo
+        
+        # Detect the default branch
+        DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+        echo "Default branch: ${DEFAULT_BRANCH}"
+        
+        # Create Casks directory if it doesn't exist
+        mkdir -p Casks
         
         # Update the cask file
         cat > Casks/netspeedmonitor.rb << EOF
@@ -218,8 +229,10 @@ jobs:
         EOF
         
         # Commit and push the changes
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
         git add Casks/netspeedmonitor.rb
-        git commit -m "chore: update NetSpeedMonitor to ${VERSION}" || exit 0
-        git push origin main || git push origin master
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: update NetSpeedMonitor to ${VERSION}"
+          git push origin "${DEFAULT_BRANCH}"
+        fi
