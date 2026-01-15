@@ -203,36 +203,32 @@ jobs:
         mkdir -p Casks
         
         # Update the cask file
-        cat > Casks/netspeedmonitor.rb << 'EOF'
-cask "netspeedmonitor" do
-  version "VERSION_PLACEHOLDER"
-  sha256 "SHA256_PLACEHOLDER"
+        cat > Casks/netspeedmonitor.rb <<EOF
+        cask "netspeedmonitor" do
+          version "${VERSION_NUMBER}"
+          sha256 "${SHA256}"
 
-  url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/vVERSION_PLACEHOLDER/NetSpeedMonitor.zip"
-  name "NetSpeed Monitor"
-  desc "macOS menu bar application that displays real-time network upload/download speeds"
-  homepage "https://github.com/guerrerocarlos/NetSpeedMonitor"
+          url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/${VERSION}/NetSpeedMonitor.zip"
+          name "NetSpeed Monitor"
+          desc "macOS menu bar application that displays real-time network upload/download speeds"
+          homepage "https://github.com/guerrerocarlos/NetSpeedMonitor"
 
-  livecheck do
-    url :url
-    strategy :github_latest
-  end
+          livecheck do
+            url :url
+            strategy :github_latest
+          end
 
-  auto_updates false
-  depends_on macos: ">= :sonoma"
+          auto_updates false
+          depends_on macos: ">= :sonoma"
 
-  app "NetSpeedMonitor.app"
+          app "NetSpeedMonitor.app"
 
-  zap trash: [
-    "~/Library/Preferences/com.r3js.netspeedmonitor.plist",
-    "~/Library/Saved Application State/com.r3js.netspeedmonitor.savedState",
-  ]
-end
-EOF
-        
-        # Replace placeholders
-        sed -i '' "s/VERSION_PLACEHOLDER/${VERSION_NUMBER}/g" Casks/netspeedmonitor.rb
-        sed -i '' "s/SHA256_PLACEHOLDER/${SHA256}/g" Casks/netspeedmonitor.rb
+          zap trash: [
+            "~/Library/Preferences/com.r3js.netspeedmonitor.plist",
+            "~/Library/Saved Application State/com.r3js.netspeedmonitor.savedState",
+          ]
+        end
+        EOF
         
         # Show the updated file
         echo "Updated cask file:"
