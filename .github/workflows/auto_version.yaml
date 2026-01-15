@@ -175,3 +175,51 @@ jobs:
           build/Release/NetSpeedMonitor.zip
           build/Release/NetSpeedMonitor.sha256
           release_notes.md
+
+    - name: Update Homebrew Cask
+      if: steps.check_tag.outputs.exists == 'false'
+      env:
+        GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        VERSION_NUMBER="${VERSION#v}"
+        SHA256=$(cat build/Release/NetSpeedMonitor.sha256 | awk '{print $1}')
+        
+        # Clone the homebrew-tap repository
+        git clone https://x-access-token:${GITHUB_TOKEN}@github.com/guerrerocarlos/homebrew-tap.git tap-repo
+        cd tap-repo
+        
+        # Update the cask file
+        cat > Casks/netspeedmonitor.rb << EOF
+        cask "netspeedmonitor" do
+          version "${VERSION_NUMBER}"
+          sha256 "${SHA256}"
+        
+          url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/${VERSION}/NetSpeedMonitor.zip"
+          name "NetSpeed Monitor"
+          desc "macOS menu bar application that displays real-time network upload/download speeds"
+          homepage "https://github.com/guerrerocarlos/NetSpeedMonitor"
+        
+          livecheck do
+            url :url
+            strategy :github_latest
+          end
+        
+          auto_updates false
+          depends_on macos: ">= :sonoma"
+        
+          app "NetSpeedMonitor.app"
+        
+          zap trash: [
+            "~/Library/Preferences/com.r3js.netspeedmonitor.plist",
+            "~/Library/Saved Application State/com.r3js.netspeedmonitor.savedState",
+          ]
+        end
+        EOF
+        
+        # Commit and push the changes
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add Casks/netspeedmonitor.rb
+        git commit -m "chore: update NetSpeedMonitor to ${VERSION}" || exit 0
+        git push origin main || git push origin master
