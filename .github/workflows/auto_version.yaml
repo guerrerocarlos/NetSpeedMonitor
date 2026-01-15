@@ -179,54 +179,64 @@ jobs:
     - name: Update Homebrew Cask
       if: steps.check_tag.outputs.exists == 'false'
       env:
-        GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN || secrets.GITHUB_TOKEN }}
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         VERSION_NUMBER="${VERSION#v}"
         SHA256=$(cat build/Release/NetSpeedMonitor.sha256 | awk '{print $1}')
         
-        # Configure git credentials
+        echo "Updating Homebrew tap with version ${VERSION}"
+        
+        # Configure git
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         
-        # Clone the homebrew-tap repository with token
-        git clone "https://github-actions:${GITHUB_TOKEN}@github.com/guerrerocarlos/homebrew-tap.git" tap-repo
+        # Clone using gh CLI (handles authentication automatically)
+        gh repo clone guerrerocarlos/homebrew-tap tap-repo
         cd tap-repo
         
         # Detect the default branch
-        DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-        echo "Default branch: ${DEFAULT_BRANCH}"
+        DEFAULT_BRANCH=$(git branch --show-current)
+        echo "Working on branch: ${DEFAULT_BRANCH}"
         
         # Create Casks directory if it doesn't exist
         mkdir -p Casks
         
         # Update the cask file
-        cat > Casks/netspeedmonitor.rb << EOF
-        cask "netspeedmonitor" do
-          version "${VERSION_NUMBER}"
-          sha256 "${SHA256}"
+        cat > Casks/netspeedmonitor.rb << 'EOF'
+cask "netspeedmonitor" do
+  version "VERSION_PLACEHOLDER"
+  sha256 "SHA256_PLACEHOLDER"
+
+  url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/vVERSION_PLACEHOLDER/NetSpeedMonitor.zip"
+  name "NetSpeed Monitor"
+  desc "macOS menu bar application that displays real-time network upload/download speeds"
+  homepage "https://github.com/guerrerocarlos/NetSpeedMonitor"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  auto_updates false
+  depends_on macos: ">= :sonoma"
+
+  app "NetSpeedMonitor.app"
+
+  zap trash: [
+    "~/Library/Preferences/com.r3js.netspeedmonitor.plist",
+    "~/Library/Saved Application State/com.r3js.netspeedmonitor.savedState",
+  ]
+end
+EOF
         
-          url "https://github.com/guerrerocarlos/NetSpeedMonitor/releases/download/${VERSION}/NetSpeedMonitor.zip"
-          name "NetSpeed Monitor"
-          desc "macOS menu bar application that displays real-time network upload/download speeds"
-          homepage "https://github.com/guerrerocarlos/NetSpeedMonitor"
+        # Replace placeholders
+        sed -i '' "s/VERSION_PLACEHOLDER/${VERSION_NUMBER}/g" Casks/netspeedmonitor.rb
+        sed -i '' "s/SHA256_PLACEHOLDER/${SHA256}/g" Casks/netspeedmonitor.rb
         
-          livecheck do
-            url :url
-            strategy :github_latest
-          end
-        
-          auto_updates false
-          depends_on macos: ">= :sonoma"
-        
-          app "NetSpeedMonitor.app"
-        
-          zap trash: [
-            "~/Library/Preferences/com.r3js.netspeedmonitor.plist",
-            "~/Library/Saved Application State/com.r3js.netspeedmonitor.savedState",
-          ]
-        end
-        EOF
+        # Show the updated file
+        echo "Updated cask file:"
+        cat Casks/netspeedmonitor.rb
         
         # Commit and push the changes
         git add Casks/netspeedmonitor.rb
@@ -235,4 +245,5 @@ jobs:
         else
           git commit -m "chore: update NetSpeedMonitor to ${VERSION}"
           git push origin "${DEFAULT_BRANCH}"
+          echo "✅ Successfully updated Homebrew tap"
         fi
