@@ -66,7 +66,7 @@ class MenuBarState: ObservableObject {
     @AppStorage("ShowLatencyAndQuality") var showLatencyAndQuality: Bool = true {
         didSet { updateDisplayFormat() }
     }
-    @Published var menuText = "--ms  0.0MB/s\n---%  0.0MB/s"
+    @Published var menuText = "---%  0.0MB/s\n--ms  0.0MB/s"
     @Published var isOnline: Bool = true
     @Published var connectionJustRestored: Bool = false
 
@@ -196,19 +196,19 @@ class MenuBarState: ObservableObject {
             // Define multiple format levels from most detailed to most compact
             let formats = [
                 // Level 1: Full detail
-                "\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))M\(unit)/s\n\(quality) \(String(format: "%5.1f", self.uploadSpeed))M\(unit)/s",
+                "\(quality) \(String(format: "%5.1f", self.uploadSpeed))M\(unit)/s\n\(latencyText) \(String(format: "%5.1f", self.downloadSpeed))M\(unit)/s",
 
                 // Level 2: Medium detail
-                "\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))M\(unit)\n\(quality) \(String(format: "%4.1f", self.uploadSpeed))M\(unit)",
+                "\(quality) \(String(format: "%4.1f", self.uploadSpeed))M\(unit)\n\(latencyText) \(String(format: "%4.1f", self.downloadSpeed))M\(unit)",
 
                 // Level 3: Compact
-                "\(latencyText) \(String(format: "%3.1f", self.downloadSpeed))M\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))M",
+                "\(quality) \(String(format: "%3.1f", self.uploadSpeed))M\n\(latencyText) \(String(format: "%3.1f", self.downloadSpeed))M",
 
                 // Level 4: Very compact
-                "\(String(format: "%.0f", self.latencyMs ?? 0)) \(String(format: "%3.1f", self.downloadSpeed))\n\(quality) \(String(format: "%3.1f", self.uploadSpeed))",
+                "\(quality) \(String(format: "%3.1f", self.uploadSpeed))\n\(String(format: "%.0f", self.latencyMs ?? 0)) \(String(format: "%3.1f", self.downloadSpeed))",
 
                 // Level 5: Ultra compact (fallback)
-                "\(String(format: "%.1f", self.downloadSpeed))\n\(String(format: "%.1f", self.uploadSpeed))",
+                "\(String(format: "%.1f", self.uploadSpeed))\n\(String(format: "%.1f", self.downloadSpeed))",
             ]
 
             let maxWidth: CGFloat = 85  // Available width in menu bar
@@ -228,7 +228,7 @@ class MenuBarState: ObservableObject {
             // Simple speed-only format (no arrows, no latency/quality)
             let unit = self.speedUnit.shortUnit
             return
-                "\(String(format: "%5.1f", self.downloadSpeed))M\(unit)/s\n\(String(format: "%5.1f", self.uploadSpeed))M\(unit)/s"
+                "\(String(format: "%5.1f", self.uploadSpeed))M\(unit)/s\n\(String(format: "%5.1f", self.downloadSpeed))M\(unit)/s"
         }
     }
 
